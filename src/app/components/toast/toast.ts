@@ -1,6 +1,7 @@
 import './toast.css';
 
 export class Toast {
+    
   private static container: HTMLElement | null = null;
 
   private static ensureContainer(): void {
@@ -18,11 +19,11 @@ export class Toast {
     }
   }
 
-  static show(message: string, duration = 3000): void {
+  static show(message: string, duration = 6000): void {
     Toast.ensureContainer();
 
     const toast = document.createElement('div');
-    toast.className = 'toast'; // SEM a classe 'hide'
+    toast.className = 'toast';
     toast.textContent = message;
     toast.style.cssText = `
       background-color: #323232;
@@ -55,7 +56,7 @@ export class Toast {
       // Remover do DOM após animação
       setTimeout(() => {
         toast.remove();
-      }, 300);
+      }, 600);
     }, duration);
   }
 }
