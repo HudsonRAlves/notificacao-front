@@ -1,10 +1,15 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { Title } from "../../components/shared/title/title";
 import { UsersService } from '../../services/users.service';
 import UserOutDTO from '../../models/UserOutDTO';
 import UserInDTO from '../../models/UserInDTO';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { WebSocketService } from '../../services/websocket.service';
+import { Toast } from '../../components/toast/toast';
+import { MatDialog } from '@angular/material/dialog';
+import { DialogComponent } from '../../components/dialog/dialog.component';
+import { Subscription } from 'rxjs';
 
 
 @Component({
@@ -14,8 +19,13 @@ import { CommonModule } from '@angular/common';
   styleUrl: './users.css',
   standalone: true,
 })
-export class Users {
+export class Users implements OnInit, OnDestroy {
+
   private usersService = inject(UsersService);
+  private wsService: WebSocketService | null = null;
+  private webSocketService = inject(WebSocketService);
+  private dialogRef = inject(MatDialog);
+  private subscriptions: Subscription[] = [];
 
   // Signals para dados do backend
   users = signal<UserOutDTO[]>([]);
@@ -24,19 +34,41 @@ export class Users {
   error = signal<string | null>(null);
   showModal = signal(false);
   editingUser = signal<UserOutDTO | null>(null);
-  
-  // Propriedades normais para o formulário (ngModel funciona direto)
+
   userName = '';
   userEmail = '';
 
+
   ngOnInit(): void {
     this.getUsers();
+    
+    // Conectar ao WebSocket
+    this.webSocketService.connect();
+    
+    // Inscrever no tópico de usuários
+    const userSub = this.webSocketService.subscribe('/topic/user').subscribe(notification => {
+      console.log('Notificação de usuário:', notification);
+      
+      const message = typeof notification === 'string' 
+        ? notification 
+        : notification.message || '-';
+      
+      Toast.show(message);
+      this.getUsers();
+    });
+    this.subscriptions.push(userSub);
+    
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.webSocketService.disconnect();
   }
 
   getUsers(): void {
     this.loading.set(true);
     this.error.set(null);
-    
+
     this.usersService.getAll().subscribe({
       next: (users) => {
         this.users.set(users.sort((a, b) => (a.id ?? 0) - (b.id ?? 0)));
@@ -69,15 +101,15 @@ export class Users {
 
     this.saving.set(true);
     const editing = this.editingUser();
-    const userData: UserInDTO = { 
-      name: this.userName, 
-      email: this.userEmail 
+    const userData: UserInDTO = {
+      name: this.userName,
+      email: this.userEmail
     };
 
     if (editing) {
       this.usersService.update(editing.id!, userData).subscribe({
         next: (updatedUser) => {
-          this.users.update(users => 
+          this.users.update(users =>
             users.map(u => u.id === updatedUser.id ? updatedUser : u)
           );
           this.closeModal();
@@ -104,18 +136,30 @@ export class Users {
   }
 
   deleteUser(id: number): void {
-    if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
-
-    this.usersService.delete(id).subscribe({
-      next: () => {
-        this.users.update(users => users.filter(u => u.id !== id));
-      },
-      error: (err) => {
-        this.error.set('Erro ao excluir usuário.');
-        console.error('Erro:', err);
-      }
-    });
-  }
+  
+      const dialogRef = this.dialogRef.open(DialogComponent, {
+        data: {
+          title: 'Confirmação',
+          message: 'Tem certeza que deseja excluir este usuário?',
+          confirmText: 'Excluir',
+          cancelText: 'Cancelar'
+        },
+        width: '400px', 
+      });
+      dialogRef.afterClosed().subscribe((confirmed: boolean) => {
+        if (!confirmed) return;
+        this.usersService.delete(id).subscribe({
+          next: () => {
+            this.users.update(users => users.filter(u => u.id !== id));
+          },
+          error: (err) => {
+            this.error.set('Erro ao excluir usuário.');
+            console.error('Erro:', err);
+          }
+        });
+      });
+      return;
+    }
 
   closeModal(): void {
     this.showModal.set(false);
@@ -124,4 +168,5 @@ export class Users {
     this.userEmail = '';
     this.saving.set(false);
   }
+
 }

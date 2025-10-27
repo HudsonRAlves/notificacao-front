@@ -1,0 +1,8 @@
+<h2 class="bg-orange-400 p-4">{{ data.title }}</h2>
+<div mat-dialog-content class="text-black p-4">
+  <p>{{ data.message }}</p>
+</div>
+<div class="modal-actions"> align="end">
+  <button mat-button (click)="onCancel()" class="btn btn-primary">{{ data.cancelText || 'Cancelar' }}</button>
+  <button mat-raised-button color="primary" (click)="onConfirm()" class="btn btn-danger">{{ data.confirmText || 'Confirmar' }}</button>
+</div>
