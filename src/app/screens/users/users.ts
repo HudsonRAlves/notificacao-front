@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Title } from "../../components/shared/title/title";
 import { UsersService } from '../../services/users.service';
 import UserOutDTO from '../../models/UserOutDTO';
@@ -6,125 +6,122 @@ import UserInDTO from '../../models/UserInDTO';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
+
 @Component({
   selector: 'app-users',
-  imports: [Title, FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule, Title],
   templateUrl: './users.html',
   styleUrl: './users.css',
   standalone: true,
 })
 export class Users {
+  private usersService = inject(UsersService);
 
-  users: UserOutDTO[] = [];
-  loading = false;
-  saving = false;
-  error: string | null = null;
-
-  showModal = false;
-  editingUser: UserOutDTO | null = null;
-  currentUser: UserInDTO = { name: '', email: '' };
-
-  constructor(private usersService: UsersService) { }
+  // Signals para dados do backend
+  users = signal<UserOutDTO[]>([]);
+  loading = signal(false);
+  saving = signal(false);
+  error = signal<string | null>(null);
+  showModal = signal(false);
+  editingUser = signal<UserOutDTO | null>(null);
+  
+  // Propriedades normais para o formulário (ngModel funciona direto)
+  userName = '';
+  userEmail = '';
 
   ngOnInit(): void {
     this.getUsers();
   }
 
-  // READ - Listar usuários
   getUsers(): void {
-    this.loading = true;
-    this.error = null;
-
+    this.loading.set(true);
+    this.error.set(null);
+    
     this.usersService.getAll().subscribe({
       next: (users) => {
-        this.users = users.sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
-        this.loading = false;
+        this.users.set(users.sort((a, b) => (a.id ?? 0) - (b.id ?? 0)));
+        this.loading.set(false);
       },
       error: (err) => {
-        this.error = 'Erro ao carregar usuários. Tente novamente.';
-        this.loading = false;
+        this.error.set('Erro ao carregar usuários. Tente novamente.');
+        this.loading.set(false);
         console.error('Erro:', err);
       }
     });
   }
 
-  // CREATE - Abrir modal para criar
   openCreateModal(): void {
-    this.editingUser = null;
-    this.currentUser = { name: '', email: '' };
-    this.showModal = true;
+    this.editingUser.set(null);
+    this.userName = '';
+    this.userEmail = '';
+    this.showModal.set(true);
   }
 
-  // UPDATE - Abrir modal para editar
   openEditModal(user: UserOutDTO): void {
-    this.editingUser = user;
-    this.currentUser = {
-      name: user.name,
-      email: user.email
-    };
-    this.showModal = true;
+    this.editingUser.set(user);
+    this.userName = user.name;
+    this.userEmail = user.email;
+    this.showModal.set(true);
   }
 
-  // CREATE/UPDATE - Salvar usuário
   saveUser(): void {
-    if (!this.currentUser.name || !this.currentUser.email) return;
+    if (!this.userName || !this.userEmail) return;
 
-    this.saving = true;
+    this.saving.set(true);
+    const editing = this.editingUser();
+    const userData: UserInDTO = { 
+      name: this.userName, 
+      email: this.userEmail 
+    };
 
-    if (this.editingUser) {
-      // UPDATE
-      this.usersService.update(this.editingUser.id!, this.currentUser).subscribe({
+    if (editing) {
+      this.usersService.update(editing.id!, userData).subscribe({
         next: (updatedUser) => {
-          const index = this.users.findIndex(u => u.id === updatedUser.id);
-          if (index !== -1) {
-            this.users[index] = updatedUser;
-          }
+          this.users.update(users => 
+            users.map(u => u.id === updatedUser.id ? updatedUser : u)
+          );
           this.closeModal();
-          this.saving = false;
         },
         error: (err) => {
-          this.error = 'Erro ao atualizar usuário.';
-          this.saving = false;
+          this.error.set('Erro ao atualizar usuário.');
+          this.saving.set(false);
           console.error('Erro:', err);
         }
       });
     } else {
-      // CREATE
-      this.usersService.create(this.currentUser).subscribe({
+      this.usersService.create(userData).subscribe({
         next: (newUser) => {
-          this.users.push(newUser);
+          this.users.update(users => [...users, newUser]);
           this.closeModal();
-          this.saving = false;
         },
         error: (err) => {
-          this.error = 'Erro ao criar usuário.';
-          this.saving = false;
+          this.error.set('Erro ao criar usuário.');
+          this.saving.set(false);
           console.error('Erro:', err);
         }
       });
     }
   }
 
-  // DELETE - Excluir usuário
   deleteUser(id: number): void {
     if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
 
     this.usersService.delete(id).subscribe({
       next: () => {
-        this.users = this.users.filter(u => u.id !== id);
+        this.users.update(users => users.filter(u => u.id !== id));
       },
       error: (err) => {
-        this.error = 'Erro ao excluir usuário.';
+        this.error.set('Erro ao excluir usuário.');
         console.error('Erro:', err);
       }
     });
   }
 
   closeModal(): void {
-    this.showModal = false;
-    this.editingUser = null;
-    this.currentUser = { name: '', email: '' };
-    this.saving = false;
+    this.showModal.set(false);
+    this.editingUser.set(null);
+    this.userName = '';
+    this.userEmail = '';
+    this.saving.set(false);
   }
-
 }
