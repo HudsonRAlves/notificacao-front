@@ -59,7 +59,8 @@
               "buildTarget": "notificacao-front:build:production"
             },
             "development": {
-              "buildTarget": "notificacao-front:build:development"
+              "buildTarget": "notificacao-front:build:development",
+              "proxyConfig": "proxy.conf.json" 
             }
           },
           "defaultConfiguration": "development"

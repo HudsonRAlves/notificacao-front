@@ -1,6 +1,102 @@
-<div class="flex flex-col gap-6">  
-    <app-title main="Bem-vindo à tela de usuários" sub="Gerencie seus usuários facilmente"></app-title>  
-    <div>  
-        <p>Esta é a tela inicial do aplicativo Usuários. Use o menu à esquerda para navegar entre as seções.</p>  
+<div class="flex flex-col gap-6">
+  <app-title main="Bem-vindo à tela de usuários" sub="Gerencie seus usuários facilmente"></app-title>
+  <div>
+    <p>Esta é a tela inicial do aplicativo Usuários. Use o menu à esquerda para navegar entre as seções.</p>
+  </div>
+</div>
+
+<div class="border-2 border-s border-blue-500 rounded-lg mt-15">
+
+  <!-- users-list.component.html -->
+  <div class="container">
+    <div class="header">
+      <h2>Lista de Usuários</h2>
+      <button (click)="openCreateModal()" class="btn btn-primary">
+        + Novo Usuário
+      </button>
     </div>
+
+    @if (loading) {
+    <div class="loading">Carregando usuários...</div>
+    }
+
+    @if (error) {
+    <div class="error-alert">
+      {{ error }}
+      <button (click)="error = null" class="close-btn">&times;</button>
+    </div>
+    }
+
+    @if (!loading && users.length > 0) {
+    <div class="table-container">
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Email</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of users; track user.id) {
+          <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td class="actions">
+              <button (click)="openEditModal(user)" class="btn btn-edit" title="Editar usuário">
+                Editar
+              </button>
+              <button (click)="deleteUser(user.id!)" class="btn btn-danger" title="Excluir usuário">
+                Excluir
+              </button>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+
+    @if (!loading && users.length === 0) {
+    <div class="empty-state">
+      <p>Nenhum usuário cadastrado.</p>
+      <button (click)="openCreateModal()" class="btn btn-primary">
+        Cadastrar Primeiro Usuário
+      </button>
+    </div>
+    }
+  </div>
+
+  <!-- Modal para Criar/Editar -->
+  @if (showModal) {
+  <div class="modal-overlay">
+    <div class="modal">
+      <h3>{{ editingUser ? 'Editar' : 'Novo' }} Usuário</h3>
+
+      <form (ngSubmit)="saveUser()" #userForm="ngForm">
+        <div class="form-group">
+          <label for="name">Nome:</label>
+          <input type="text" id="name" name="name" [(ngModel)]="currentUser.name" required class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email" [(ngModel)]="currentUser.email" required class="form-control">
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" (click)="closeModal()" class="btn btn-secondary">
+            Cancelar
+          </button>
+          <button type="submit" [disabled]="!userForm.valid || saving" class="btn btn-primary">
+            {{ saving ? 'Salvando...' : 'Salvar' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  }
+
 </div>
